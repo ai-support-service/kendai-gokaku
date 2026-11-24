@@ -48,7 +48,7 @@ body{margin:0;min-height:100vh;background:var(--cream);color:var(--ink);font-fam
 </div>
 <script>
 (function(){
-  var VER="03b91b61e3ccaa80",SALT="lgc3wYmM07hUl9rvHwGWmg==",IVGZ="8BgAB7jpyK1Dw8ag",IVRAW="yyUxkIAzKs1qI+7T",IT=600000,PK="kendai_gokaku_pass";
+  var VER="7abbeda894829bc2",SALT="HGuxBNadNKOIl8Iz4gjJKw==",IVGZ="amk+yLqCz3nZKu/q",IVRAW="f2lPvf1YiUWmapuq",IT=600000,PK="kendai_gokaku_pass";
   var $=function(i){return document.getElementById(i);};
   function bin(s){var r=atob(s),u=new Uint8Array(r.length);for(var i=0;i<r.length;i++)u[i]=r.charCodeAt(i);return u;}
   function norm(p){return String(p||"").trim().toLowerCase().replace(/[-\s　ー－]/g,"");}
@@ -105,17 +105,29 @@ body{margin:0;min-height:100vh;background:var(--cream);color:var(--ink);font-fam
     return deriveKey(pw).then(function(key){
       return download().then(function(buf){msg("鍵をあけています…",100);return decrypt(buf,key);});
     }).then(function(html){
-      put(pw);cachePut({ver:VER,html:html});write(html);
+      put(pw);msg("開いています…",100);Promise.race([cachePut({ver:VER,html:html}),new Promise(function(ok){setTimeout(ok,5000);})]).then(function(){write(html);});
     }).catch(function(e){waiting=false;fail(e,saved);});
   }
   if(!(window.crypto&&crypto.subtle)){msg("このブラウザでは開けません（SafariかChromeで開いてください）");return;}
   $("lkF").addEventListener("submit",function(ev){ev.preventDefault();var pw=norm($("lkP").value);if(!pw)return;$("lkB").disabled=true;$("lkB").textContent="開いています…";open(pw,null);});
+  // いちばん新しい版を毎回たしかめる（ホーム画面のアプリが古い入口を覚えていても、新しい版に入れ替わる）
+  function latest(){
+    var t=new Promise(function(ok){setTimeout(function(){ok(null);},4000);});
+    var f=fetch("ver.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).then(function(v){return v&&v.VER&&v.SALT?v:null;}).catch(function(){return null;});
+    return Promise.race([f,t]);
+  }
+  function use(v){if(v&&v.VER!==VER){VER=v.VER;SALT=v.SALT;IVGZ=v.IVGZ;IVRAW=v.IVRAW;dl=null;}}
   var s=get();
   if(s){
-    // 版が同じなら、端末の中の控えからすぐ開く（電波がなくても開ける）
-    cacheGet().then(function(c){if(c&&c.ver===VER&&c.html){write(c.html);}else{download();open(s,s);}});
+    cacheGet().then(function(c){
+      latest().then(function(v){
+        use(v);
+        // 版が同じ、または電波がなくて確かめられないときは、端末の中の控えからすぐ開く
+        if(c&&c.html&&(c.ver===VER||!v)){write(c.html);}else{download();open(s,s);}
+      });
+    });
   }else{
-    download();showForm();
+    latest().then(function(v){use(v);download();showForm();});
   }
 })();
 </script>
